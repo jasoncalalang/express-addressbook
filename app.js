@@ -8,87 +8,94 @@ const pool = mysql.createPool({
   host: 'sql.intranet.cspb.edu.ph',
   user: 'testuser',
   password: 'testpassword',
-  database: 'testdb'
-});
+  database: 'testdb',
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0
+}).promise();
 
-// Middleware to parse JSON bodies
+// Middleware to parse JSON requests
 app.use(express.json());
 
 // CREATE: Add a new contact
-app.post('/contacts', (req, res) => {
-  const { first_name, last_name, phone, email, address } = req.body;
-  pool.query(
-    'INSERT INTO contacts (first_name, last_name, phone, email, address) VALUES (?, ?, ?, ?, ?)',
-    [first_name, last_name, phone, email, address],
-    (err, results) => {
-      if (err) {
-        console.error(err);
-        return res.status(500).json({ error: 'Database error' });
-      }
-      res.status(201).json({ message: 'Contact created', contactId: results.insertId });
-    }
-  );
+app.post('/contacts', async (req, res) => {
+  try {
+    const { first_name, last_name, phone, email, address } = req.body;
+    const [result] = await pool.execute(
+      'INSERT INTO contacts (first_name, last_name, phone, email, address) VALUES (?, ?, ?, ?, ?)',
+      [first_name, last_name, phone, email, address]
+    );
+    res.status(201).json({ message: 'Contact created', contactId: result.insertId });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
 // READ: Get all contacts
-app.get('/contacts', (req, res) => {
-  pool.query('SELECT * FROM contacts', (err, results) => {
-    if (err) {
-      console.error(err);
-      return res.status(500).json({ error: 'Database error' });
-    }
-    res.json(results);
-  });
+app.get('/contacts', async (req, res) => {
+  try {
+    const [rows] = await pool.execute('SELECT * FROM contacts');
+    res.json(rows);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
-// READ: Get a single contact by id
-app.get('/contacts/:id', (req, res) => {
-  const contactId = req.params.id;
-  pool.query('SELECT * FROM contacts WHERE id = ?', [contactId], (err, results) => {
-    if (err) {
-      console.error(err);
-      return res.status(500).json({ error: 'Database error' });
-    }
-    if (results.length === 0) {
+// READ: Get a single contact by ID
+app.get('/contacts/:id', async (req, res) => {
+  try {
+    const contactId = req.params.id;
+    const [rows] = await pool.execute('SELECT * FROM contacts WHERE id = ?', [contactId]);
+
+    if (rows.length === 0) {
       return res.status(404).json({ error: 'Contact not found' });
     }
-    res.json(results[0]);
-  });
+    res.json(rows[0]);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
-// UPDATE: Update a contact by id
-app.put('/contacts/:id', (req, res) => {
-  const contactId = req.params.id;
-  const { first_name, last_name, phone, email, address } = req.body;
-  pool.query(
-    'UPDATE contacts SET first_name = ?, last_name = ?, phone = ?, email = ?, address = ? WHERE id = ?',
-    [first_name, last_name, phone, email, address, contactId],
-    (err, results) => {
-      if (err) {
-        console.error(err);
-        return res.status(500).json({ error: 'Database error' });
-      }
-      if (results.affectedRows === 0) {
-        return res.status(404).json({ error: 'Contact not found' });
-      }
-      res.json({ message: 'Contact updated' });
-    }
-  );
-});
+// UPDATE: Update a contact by ID
+app.put('/contacts/:id', async (req, res) => {
+  try {
+    const contactId = req.params.id;
+    const { first_name, last_name, phone, email, address } = req.body;
 
-// DELETE: Remove a contact by id
-app.delete('/contacts/:id', (req, res) => {
-  const contactId = req.params.id;
-  pool.query('DELETE FROM contacts WHERE id = ?', [contactId], (err, results) => {
-    if (err) {
-      console.error(err);
-      return res.status(500).json({ error: 'Database error' });
-    }
-    if (results.affectedRows === 0) {
+    const [result] = await pool.execute(
+      'UPDATE contacts SET first_name = ?, last_name = ?, phone = ?, email = ?, address = ? WHERE id = ?',
+      [first_name, last_name, phone, email, address, contactId]
+    );
+
+    if (result.affectedRows === 0) {
       return res.status(404).json({ error: 'Contact not found' });
     }
+
+    res.json({ message: 'Contact updated' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// DELETE: Remove a contact by ID
+app.delete('/contacts/:id', async (req, res) => {
+  try {
+    const contactId = req.params.id;
+    const [result] = await pool.execute('DELETE FROM contacts WHERE id = ?', [contactId]);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Contact not found' });
+    }
+
     res.json({ message: 'Contact deleted' });
-  });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Database error' });
+  }
 });
 
 // Start the server
