@@ -1,0 +1,8 @@
+version: "3.8"
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    extra_hosts:
+      - "sql.intranet.cspb.edu.ph:127.0.0.1"

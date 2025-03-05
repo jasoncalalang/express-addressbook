@@ -79,3 +79,7 @@ This project is a simple Express application that provides a CRUD API to manage 
 
 - Replace `localhost:3000` with your actual server address and port if different.
 - Ensure your MySQL database is set up and the `contacts` table exists as expected.
+- If you encounter a "getaddrinfo ENOTFOUND sql.intranet.cspb.edu.ph" error, run your container with an extra host mapping:
+  ```bash
+  docker run --add-host sql.intranet.cspb.edu.ph:127.0.0.1 -p 3000:3000 your-image:latest
+  ```
